@@ -1,11 +1,3 @@
-cat << EOF > startup.sh
-#! /bin/bash
-apt-get update
-apt-get install -y nginx
-service nginx start
-sed -i -- 's/nginx/Google Cloud Platform - '"\$HOSTNAME"'/' /var/www/html/index.nginx-debian.html
-EOF
-
 TASK : 1 - Create a project jumphost instance
 - login to your lab 
 - goto HOME - goto Compute Engine - VM Instances - CREATE instance
