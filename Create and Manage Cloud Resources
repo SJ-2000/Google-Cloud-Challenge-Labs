@@ -1,0 +1,86 @@
+cat << EOF > startup.sh
+#! /bin/bash
+apt-get update
+apt-get install -y nginx
+service nginx start
+sed -i -- 's/nginx/Google Cloud Platform - '"\$HOSTNAME"'/' /var/www/html/index.nginx-debian.html
+EOF
+
+TASK : 1 - Create a project jumphost instance
+- login to your lab 
+- goto HOME - goto Compute Engine - VM Instances - CREATE instance
+- copy paste the name of the instance
+- goto series and select the one which is mentioned in your lab, for eg - f1 - micro
+- click CREATE
+- **NOTE**: Ensure that you click on the Check my Progress Bar every time you complete a task
+
+TASK : 2 - Create a Kubernetes service cluster
+- OPEN Cloud Shell
+- commands
+  1. gcloud auth list 
+  2. gcloud config project 
+  3. set your zone
+     gcloud config set compute/zone us-east1-b 
+  4. create the cluster
+     gcloud container clusters create [ANY NAME] 
+     It takes around 4-5 minutes in creation of a cluster, so be patient :)
+     **NOTE**: remove the square brackets while you write the command
+  5. Get credentials of cluster
+      gcloud container clusters get-credentials [SAME NAME AS ABOVE ONE]
+  6. kubectl create deployment hello-server --image=gcr.io/google-samples/hello-app:2.0
+  7. kubectl expose deployment hello-server --type=LoadBalancer --port 8082
+     **NOTE** : Check your port number!
+     
+ TASK : 3 - Set up an HTTP load balancer 
+ - commands 
+  1. COPY/PASTE the transcript given
+  cat << EOF > startup.sh
+  #! /bin/bash
+  apt-get update
+  apt-get install -y nginx
+  service nginx start
+  sed -i -- 's/nginx/Google Cloud Platform - '"\$HOSTNAME"'/' /var/www/html/index.nginx-debian.html
+  EOF
+  2. Use this command for instance update
+  gcloud compute instance-templates create web-server-template \
+          --metadata-from-file startup-script=startup.sh \
+          --network nucleus-vpc \
+          --machine-type g1-small \
+          --region us-east1
+  3. Manage instance group
+  gcloud compute instance-groups managed create web-server-group \
+          --base-instance-name web-server \
+          --size 2 \
+          --template web-server-template \
+          --region us-east1
+  4. Lets now create a firewall rule name
+  gcloud compute firewall-rules create [REPLACE YOUR FIREWALL NAME WHICH IS MENTIONED ON LEFT SIDE] \
+          --allow tcp:80 \
+          --network nucleus-vpc
+  gcloud compute http-health-checks create http-basic-check
+  gcloud compute instance-groups managed \
+          set-named-ports web-server-group \
+          --named-ports http:80 \
+          --region us-east1
+   5. gcloud compute backend-services create web-server-backend \
+          --protocol HTTP \
+          --http-health-checks http-basic-check \
+          --global
+      gcloud compute backend-services add-backend web-server-backend \
+          --instance-group web-server-group \
+          --instance-group-region us-east1 \
+          --global
+   6. gcloud compute url-maps create web-server-map \
+          --default-service web-server-backend
+      gcloud compute target-http-proxies create http-lb-proxy \
+          --url-map web-server-map 
+   7. gcloud compute forwarding-rules create http-content-rule \
+        --global \
+        --target-http-proxy http-lb-proxy \
+        --ports 80
+   8. gcloud compute forwarding-rules list
+   
+   **VERY IMPORTANT**: In case you get a message saying-
+   "Please verify the web servers are serving on frontend of HTTP(s) Load Balancer." 
+   Wait for a while and check your progress again. 
+   Else check out this link for possible issues: - [Click Here](https://cloud.google.com/load-balancing/docs/https/troubleshooting-ext-https-lbs)
